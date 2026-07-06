@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Next Release - TBD
 
+## [v1.5.0] - 2026-07-06
+
 ### Added
 - `yggtree update` now installs the latest CLI release through the public release installer.
 - `yggtree config bootstrap` now creates or clears local worktree setup commands in `.yggtree/worktree-setup.json`.

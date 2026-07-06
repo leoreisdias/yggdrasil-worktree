@@ -1,6 +1,6 @@
 {
   "name": "yggtree",
-  "version": "1.4.7",
+  "version": "1.5.0",
   "packageManager": "pnpm@11.0.9",
   "description": "Interactive CLI for managing git worktrees and configs",
   "main": "dist/index.js",
