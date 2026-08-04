@@ -1,14 +1,20 @@
-# 🌳 Yggdrasil Worktree (yggtree)
+<p align="center">
+  <img src="docs/assets/yggtree-readme-hero.webp" alt="Yggdrasil's central tree branching into several isolated worktree realms, joined by gold paths" width="100%" />
+</p>
 
-[![npm version](https://img.shields.io/npm/v/yggtree.svg)](https://www.npmjs.com/package/yggtree)
-[![license](https://img.shields.io/npm/l/yggtree.svg)](https://www.npmjs.com/package/yggtree)
+<h1 align="center">Grow many worlds. Merge what matters.</h1>
 
-**Yggdrasil Worktree** (invoked as `yggtree`) is an interactive CLI designed to turn Git worktrees into a first‑class workflow.
+<p align="center">
+  <strong>Yggdrasil Worktree</strong> turns Git worktrees into clean, isolated environments for parallel development, reviews, experiments, and coding agents.
+</p>
 
-Like the mythical world tree connecting realms, Yggdrasil lets you grow isolated, parallel environments where ideas can evolve independently without colliding.
+<p align="center">
+  <a href="https://www.npmjs.com/package/yggtree"><img src="https://img.shields.io/npm/v/yggtree.svg" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/yggtree"><img src="https://img.shields.io/npm/l/yggtree.svg" alt="license" /></a>
+  <a href="https://yggtree.logbookfordevs.com/docs"><strong>Read the docs →</strong></a>
+</p>
 
-For guided workflows, command examples, and safety notes, read the full docs:
-**[yggtree.logbookfordevs.com/docs](https://yggtree.logbookfordevs.com/docs)**.
+Run the interactive CLI to create, bootstrap, enter, and manage one worktree realm per task—without disturbing the work already in progress.
 
 ---
 
