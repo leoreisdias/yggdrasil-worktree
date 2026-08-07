@@ -31,19 +31,82 @@ export function formatWorktreeDisplayPath(worktreePath: string, managedRoot = YG
     if (isManagedWorktreePath(worktreePath, managedRoot)) {
         return path.relative(managedRoot, worktreePath);
     }
-    return worktreePath.replace(process.env.HOME || '', '~');
+
+    const home = process.env.HOME;
+    if (home && worktreePath === home) return '~';
+    if (home && worktreePath.startsWith(`${home}${path.sep}`)) {
+        return path.join('~', path.relative(home, worktreePath));
+    }
+    return worktreePath;
+}
+
+function getPathSegments(worktreePath: string): string[] {
+    return path.resolve(worktreePath).split(path.sep).filter(Boolean);
+}
+
+function normalizeSelector(value: string): string {
+    return value.trim().toLowerCase();
+}
+
+function getBaseSelectors(worktree: GitWorktree, managedRoot: string): string[] {
+    return [
+        worktree.path,
+        formatWorktreeDisplayPath(worktree.path, managedRoot),
+        path.basename(worktree.path),
+        worktree.branch || '',
+        worktree.HEAD,
+    ].filter(Boolean);
+}
+
+export function getWorktreeSelector(
+    worktree: GitWorktree,
+    worktrees: GitWorktree[],
+    managedRoot = YGG_ROOT,
+): string {
+    const otherSelectors = new Set(
+        worktrees
+            .filter(candidate => candidate.path !== worktree.path)
+            .flatMap(candidate => [
+                ...getBaseSelectors(candidate, managedRoot),
+                ...getPathSegments(candidate.path),
+            ])
+            .map(normalizeSelector),
+    );
+
+    const uniqueSegment = getPathSegments(worktree.path)
+        .reverse()
+        .find(segment => !otherSelectors.has(normalizeSelector(segment)));
+
+    return uniqueSegment || worktree.path;
 }
 
 export function findWorktreeByName(worktrees: GitWorktree[], worktreeName: string, managedRoot = YGG_ROOT): GitWorktree | undefined {
-    return worktrees.find(worktree => {
-        const branchName = getWorktreeBranchName(worktree);
-        const relativePath = path.relative(managedRoot, worktree.path);
-        const basename = path.basename(worktree.path);
-        return branchName === worktreeName ||
-            relativePath === worktreeName ||
-            worktree.path === worktreeName ||
-            basename === worktreeName;
+    const trimmedName = worktreeName.trim();
+    const exactPathMatches = worktrees.filter(worktree =>
+        worktree.path === trimmedName ||
+        (path.isAbsolute(trimmedName) && path.resolve(worktree.path) === path.resolve(trimmedName))
+    );
+
+    if (exactPathMatches.length === 1) {
+        return exactPathMatches[0];
+    }
+
+    const normalizedName = normalizeSelector(trimmedName);
+    const matches = worktrees.filter(worktree => {
+        const selectors = [
+            ...getBaseSelectors(worktree, managedRoot),
+            getWorktreeSelector(worktree, worktrees, managedRoot),
+            path.relative(managedRoot, worktree.path),
+        ];
+        return selectors.some(selector => normalizeSelector(selector) === normalizedName);
     });
+
+    if (matches.length > 1) {
+        const paths = matches.map(worktree => worktree.path).join(', ');
+        throw new Error(`Worktree selector "${worktreeName}" is ambiguous. Matches: ${paths}. Use an exact path or a unique selector from "yggtree list".`);
+    }
+
+    return matches[0];
 }
 
 export async function detectWorktreeType(worktree: GitWorktree, mainWorktreePath: string, managedRoot = YGG_ROOT): Promise<WorktreeType> {

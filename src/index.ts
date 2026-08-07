@@ -144,12 +144,13 @@ function registerWorktreeCommands(parent: Command) {
     parent.command('list')
         .description('List all repo-linked worktrees')
         .option('--open', 'Open a worktree in an IDE/agent tool instead of listing')
+        .option('--json', 'Print structured worktree data as JSON')
         .action(async (options) => {
             if (options.open) {
                 await openCommand();
                 return;
             }
-            await listCommand();
+            await listCommand(options);
         });
 
     parent.command('create [branch]')
