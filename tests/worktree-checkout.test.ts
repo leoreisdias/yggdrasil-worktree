@@ -12,7 +12,12 @@ import {
 } from '../src/commands/wt/create.js';
 import { parseWorktreeList } from '../src/lib/git.js';
 import { buildManagedWorktreePath, getWorktreePathConfig, readGlobalConfig, writeGlobalConfig } from '../src/lib/global-config.js';
-import { isManagedWorktreePath } from '../src/lib/worktree.js';
+import {
+    findWorktreeByName,
+    formatWorktreeDisplayPath,
+    getWorktreeSelector,
+    isManagedWorktreePath,
+} from '../src/lib/worktree.js';
 
 const exec = promisify(execFile);
 
@@ -258,6 +263,42 @@ describe('worktree checkout reuse', () => {
     });
 });
 
+describe('worktree selectors', () => {
+    const sharedHead = 'ace11bce5883b810eab47e144bdbb2afc59e2d0f';
+    const mainPath = '/Users/leonardo/Codes/ai-rules-workflows';
+    const detachedPath = '/Users/leonardo/.codex/worktrees/600a/ai-rules-workflows';
+    const worktrees = [
+        { path: mainPath, HEAD: sharedHead, branch: 'main' },
+        { path: detachedPath, HEAD: sharedHead },
+    ];
+
+    it('derives a concise unique selector for a detached Codex worktree', () => {
+        expect(getWorktreeSelector(worktrees[1], worktrees)).toBe('600a');
+        expect(findWorktreeByName(worktrees, '600a')).toBe(worktrees[1]);
+        expect(findWorktreeByName(worktrees, detachedPath)).toBe(worktrees[1]);
+    });
+
+    it('refuses a commit selector shared by the main and detached worktrees', () => {
+        expect(() => findWorktreeByName(worktrees, sharedHead)).toThrow(
+            `Worktree selector "${sharedHead}" is ambiguous`,
+        );
+    });
+
+    it('does not corrupt canonical paths when HOME is only a substring', () => {
+        const previousHome = process.env.HOME;
+        process.env.HOME = '/var/folders/test/home';
+
+        try {
+            expect(formatWorktreeDisplayPath(
+                '/private/var/folders/test/home/.codex/worktrees/600a/repo',
+                '/tmp/.yggtree',
+            )).toBe('/private/var/folders/test/home/.codex/worktrees/600a/repo');
+        } finally {
+            process.env.HOME = previousHome;
+        }
+    });
+});
+
 describe('worktree checkout CLI', () => {
     it('can checkout a branch non-interactively with explicit ref, name, and no shell entry', async () => {
         const tmp = await mkdtemp(path.join(os.tmpdir(), 'yggtree-wc-cli-'));
@@ -359,6 +400,85 @@ describe('worktree checkout CLI', () => {
             await rm(tmp, { recursive: true, force: true });
         }
     }, 15_000);
+
+    it('round-trips a detached linked worktree through list, path, and delete', async () => {
+        const tmp = await mkdtemp(path.join(os.tmpdir(), 'yggtree-detached-selector-cli-'));
+
+        try {
+            const repo = await createBranchCandidateRepo(tmp);
+            const home = path.join(tmp, 'home');
+            const detachedPath = path.join(home, '.codex', 'worktrees', '600a', 'repo');
+            await mkdir(home);
+            await git(repo, ['worktree', 'add', '--detach', detachedPath, 'HEAD']);
+            const canonicalRepoPath = await realpath(repo);
+            const canonicalDetachedPath = await realpath(detachedPath);
+
+            const cliOptions = {
+                cwd: repo,
+                env: {
+                    ...process.env,
+                    CI: 'true',
+                    HOME: home,
+                },
+                timeout: 15_000,
+            };
+            const { stdout: humanListOutput } = await exec(
+                'node',
+                [path.resolve('dist/index.js'), 'list'],
+                cliOptions,
+            );
+            expect(humanListOutput).toContain('600a');
+            expect(humanListOutput).toContain(canonicalDetachedPath);
+
+            const { stdout: listOutput } = await exec(
+                'node',
+                [path.resolve('dist/index.js'), 'list', '--json'],
+                cliOptions,
+            );
+            const listedWorktrees = JSON.parse(listOutput) as Array<{
+                selector: string;
+                branch: string | null;
+                head: string;
+                path: string;
+            }>;
+            const detachedWorktree = listedWorktrees.find(worktree => worktree.path === canonicalDetachedPath);
+            const mainWorktree = listedWorktrees.find(worktree => worktree.path === canonicalRepoPath);
+
+            expect(detachedWorktree).toMatchObject({
+                selector: '600a',
+                branch: null,
+                path: canonicalDetachedPath,
+            });
+            expect(detachedWorktree?.head).toBe(mainWorktree?.head);
+
+            const { stdout: pathOutput } = await exec(
+                'node',
+                [path.resolve('dist/index.js'), 'path', '600a'],
+                cliOptions,
+            );
+            expect(pathOutput.trim()).toBe(`cd "${canonicalDetachedPath}"`);
+
+            await expect(exec(
+                'node',
+                [path.resolve('dist/index.js'), 'delete', detachedWorktree?.head || '', '--all', '--yes'],
+                cliOptions,
+            )).rejects.toMatchObject({
+                stdout: expect.stringContaining('is ambiguous'),
+            });
+
+            await exec(
+                'node',
+                [path.resolve('dist/index.js'), 'delete', '600a', '--all', '--yes'],
+                cliOptions,
+            );
+
+            const { stdout: worktreeOutput } = await exec('git', ['worktree', 'list', '--porcelain'], { cwd: repo });
+            expect(worktreeOutput).not.toContain(canonicalDetachedPath);
+            expect(worktreeOutput).toContain(repo);
+        } finally {
+            await rm(tmp, { recursive: true, force: true });
+        }
+    }, 20_000);
 
     it('reports occupied worktree slug paths before git worktree add runs', async () => {
         const tmp = await mkdtemp(path.join(os.tmpdir(), 'yggtree-wc-path-collision-cli-'));

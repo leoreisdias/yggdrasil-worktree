@@ -526,13 +526,18 @@ Columns:
 * STATE (clean / dirty)
 * LAST ACTIVE
 * PR (optional — requires [GitHub CLI](https://cli.github.com/))
-* BRANCH
+* SELECTOR
+* BRANCH / HEAD
+* PATH (exact Git worktree path)
 
 Notes:
 
 * Entries are grouped by `TYPE`.
 * `SANDBOX` and `MANAGED` are worktrees inside the configured managed worktree root.
 * External worktrees are labeled `LINKED`.
+* `SELECTOR` is the shortest unique path segment for the current worktree set, such as Codex's `600a`. Use it with commands such as `yggtree path 600a` or `yggtree delete 600a --all --yes`.
+* Exact paths are also accepted. Branches, commits, and other shorthand selectors must identify exactly one worktree; ambiguous selectors are refused.
+* Use `--json` for structured output containing the selector, exact path, branch, HEAD commit, type, state, activity, and PR data.
 * Use `--open` to switch this flow into "pick and open in tool" mode.
 * The **PR** column shows the pull request status for each branch (e.g. `OPEN`, `IN REVIEW`, `APPROVED`, `MERGED`, `DRAFT`, `CHANGES`). It only appears when `gh` CLI is installed and authenticated — otherwise it's silently omitted.
 
@@ -609,7 +614,7 @@ Set local bootstrap commands in `.yggtree/worktree-setup.json` under the current
 
 ### `yggtree delete [worktrees...]`
 
-Delete worktrees interactively or by explicit name.
+Delete worktrees interactively or by an exact path, unique list selector, or unambiguous branch/commit.
 
 Behavior:
 

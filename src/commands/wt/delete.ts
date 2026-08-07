@@ -7,6 +7,7 @@ import {
     detectWorktreeType,
     formatWorktreeDisplayPath,
     formatWorktreeType,
+    findWorktreeByName,
     getWorktreeBranchName,
     isManagedWorktreePath,
 } from '../../lib/worktree.js';
@@ -14,20 +15,6 @@ import {
 interface DeleteOptions {
     all?: boolean;
     yes?: boolean;
-}
-
-function normalizeTarget(value: string): string {
-    return value.trim().toLowerCase();
-}
-
-function matchesDeleteTarget(wtPath: string, branchName: string, displayPath: string, target: string): boolean {
-    const normalizedTarget = normalizeTarget(target);
-    return [
-        wtPath,
-        branchName,
-        displayPath,
-        wtPath.split('/').pop() || '',
-    ].some(value => normalizeTarget(value) === normalizedTarget);
 }
 
 interface ResolveDeleteWorktreesOptions {
@@ -57,11 +44,14 @@ function resolveDeleteWorktrees(
         return eligibleWts;
     }
 
-    return eligibleWts.filter(wt => {
-        const branchName = getWorktreeBranchName(wt);
-        const displayPath = formatWorktreeDisplayPath(wt.path, options.managedRoot);
-        return targets.some(target => matchesDeleteTarget(wt.path, branchName, displayPath, target));
-    });
+    const resolvedPaths = new Set(
+        targets
+            .map(target => findWorktreeByName(worktrees, target, options.managedRoot))
+            .filter((worktree): worktree is GitWorktree => Boolean(worktree))
+            .map(worktree => worktree.path),
+    );
+
+    return eligibleWts.filter(worktree => resolvedPaths.has(worktree.path));
 }
 
 export async function deleteCommand(targets: string[] = [], options: DeleteOptions = {}) {
