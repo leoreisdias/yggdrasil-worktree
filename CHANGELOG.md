@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Next Release - TBD
 
+## [v1.5.1] - 2026-08-09
+
 ### Fixed
 - Detached linked worktrees now expose their exact path and a concise unique selector in `yggtree list` and `--json`, so `path` and `delete` can target them safely while ambiguous branch or commit selectors are refused.
 
